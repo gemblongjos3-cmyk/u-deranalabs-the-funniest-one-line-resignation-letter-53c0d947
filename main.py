@@ -28,6 +28,11 @@ at the bound, #1/#5/#3 stay below the winner's exact combined score
 
 The program re-derives the pick from the scores: highest combined score
 wins, ties go to the earliest candidate in the list.
+
+v6 adds JUDGES_NOTES (the per-finalist judging notes from the scorecard)
+and stricter validation: the entry must be exactly one line with no
+leading/trailing whitespace, so a stray newline can never slip into the
+submitted text.
 """
 
 import os
@@ -72,6 +77,30 @@ SCORES = {
     "Effective immediately, I'm trading this job for a life.": 8.3,
 }
 
+# Judging notes per finalist, quoted from the staging scorecard.
+# The winner's note explains the unanimous pick; the other notes
+# explain why each finalist fell short. Scores marked as bounds in
+# SCORES stay bounds here — no panel score is invented.
+JUDGES_NOTES = {
+    "I quit. My resignation is the only project here that's actually on schedule.":
+        "WINNER. Unanimous — #1 in the rubric (9.3) AND #1 in the panel "
+        "(9.5), combined 9.4. Densest entry, 'on schedule' punchline "
+        "flips the expectation of always-late office projects, tone is "
+        "exactly a one-line resignation: direct, no small talk.",
+    "I quit — my plants have seen more daylight than I have this quarter.":
+        "Rubric #2 (9.0); outside the panel top-3. The daylight gag is "
+        "vivid but the premise is a familiar work-from-home complaint.",
+    "Dear boss, I'm resigning to pursue my lifelong dream of not being here.":
+        "Panel #2 (8.5). Deadpan subversion of the sincere resignation "
+        "cliche; the 'Dear boss' opener costs density.",
+    "This letter serves as notice that my soul has already left the building.":
+        "Good soul-left-the-building image (rubric 8.7); outside the "
+        "panel top-3 and a touch wordier than the winner.",
+    "Effective immediately, I'm trading this job for a life.":
+        "Tightest line after the winner (rubric 8.6); outside the panel "
+        "top-3, and 'trading this job for a life' is a known trope.",
+}
+
 
 def score(text: str) -> float:
     """Final combined score (/10) for a candidate."""
@@ -90,6 +119,13 @@ def pick_winner() -> str:
 
 
 def validate(text: str) -> None:
+    # Stricter than the contest minimum: the entry must be exactly one
+    # line, with no leading/trailing whitespace and no line breaks, so
+    # the file we write is exactly the staged winner text.
+    if text != text.strip():
+        raise ValueError("entry must not have leading or trailing whitespace")
+    if "\n" in text or "\r" in text:
+        raise ValueError("entry must be a single line")
     if not (1 <= len(text) <= MAX_CHARS):
         raise ValueError(f"entry must be 1-{MAX_CHARS} characters, got {len(text)}")
     if not text.strip():
@@ -106,6 +142,7 @@ def main() -> None:
     for candidate in sorted(FINALISTS, key=score, reverse=True):
         mark = "  <-- pick" if candidate == winner else ""
         print(f"{score(candidate):>6.2f}  {candidate}{mark}")
+    print(f"judge: {JUDGES_NOTES[winner]}")
 
     os.makedirs("/output", exist_ok=True)
     with open("/output/entry.txt", "w", encoding="utf-8", newline="") as f:
