@@ -1,11 +1,33 @@
 #!/usr/bin/env python3
 """Pick the best one-liner from a shortlist and write it to /output/entry.txt.
 
-Candidates are scored 0-100 against the competition's judging rubric:
-humour / fit to the theme first, then originality, word economy and
-format fit. The scores below are the final combined rubric + panel
-scores from the staging scorecard for this competition; the highest
-score wins and ties go to the earliest candidate in the list.
+Contest: "The Funniest One-Line Resignation Letter" (make.fun, slug
+u-deranalabs-the-funniest-one-line-resignation-letter-53c0d947, $10,
+entries close 26 Nov 2026 23:15 WIB, at most 140 characters).
+
+How the winner was chosen (staging scorecard, 26 Nov 2026):
+- Rubric (/10 per dimension, total = 0.4*theme + 0.3*originality
+  + 0.15*density + 0.15*format) over 10 candidates. Rubric ranking:
+  #10 9.3 > #1 9.0 > #5 8.7 > #3 8.6 > #2 8.5.
+- Model-combo panel (gemini-4-hydrogen, one call, status 200): top-3
+  #10 9.5, #2 8.5, #4 8.0; panel winner #10.
+- Decision: combined score = average of rubric and panel. Winner #10:
+  (9.3 + 9.5) / 2 = 9.4 — #1 in the rubric AND #1 in the panel. The
+  densest entry (two short sentences, no wasted word), the "on schedule"
+  punchline flips the expectation of office projects that are always
+  late, and the tone is exactly a one-line resignation: direct, no
+  small talk.
+
+Scoring honesty note: the panel published only its top-3, so #1, #5 and
+#3 have no panel score on record and none is invented here. Their SCORES
+entries below are UPPER BOUNDS — (rubric + 8.0) / 2, using the panel's
+lowest published score (8.0) as the ceiling, since a finalist outside
+the top-3 necessarily scored below it. The bound is conservative: even
+at the bound, #1/#5/#3 stay below the winner's exact combined score
+(9.4), so the pick does not depend on any invented number.
+
+The program re-derives the pick from the scores: highest combined score
+wins, ties go to the earliest candidate in the list.
 """
 
 import os
@@ -14,25 +36,45 @@ WINNER = "I quit. My resignation is the only project here that's actually on sch
 MAX_CHARS = 140
 ONE_WORD = False
 
+# Top 5 of 10 candidates by combined score, highest first.
 FINALISTS = [
     "I quit. My resignation is the only project here that's actually on schedule.",
-    'I quit — my plants have seen more daylight than I have this quarter.',
-    'This letter serves as notice that my soul has already left the building.',
-    "Effective immediately, I'm trading this job for a life.",
+    "I quit — my plants have seen more daylight than I have this quarter.",
     "Dear boss, I'm resigning to pursue my lifelong dream of not being here.",
+    "This letter serves as notice that my soul has already left the building.",
+    "Effective immediately, I'm trading this job for a life.",
 ]
 
+# Rubric totals (/10) from candidates.md, exactly as staged.
+RUBRIC = {
+    "I quit. My resignation is the only project here that's actually on schedule.": 9.3,
+    "I quit — my plants have seen more daylight than I have this quarter.": 9.0,
+    "This letter serves as notice that my soul has already left the building.": 8.7,
+    "Effective immediately, I'm trading this job for a life.": 8.6,
+    "Dear boss, I'm resigning to pursue my lifelong dream of not being here.": 8.5,
+}
+
+# Gemini panel scores (/10) from the scorecard; only the top-3 were
+# published. #1, #5 and #3 have no panel score — see the docstring note.
+PANEL = {
+    "I quit. My resignation is the only project here that's actually on schedule.": 9.5,
+    "Dear boss, I'm resigning to pursue my lifelong dream of not being here.": 8.5,
+}
+
+# Final combined score (/10) = (rubric + panel) / 2 where the panel
+# score is published; otherwise an UPPER BOUND (rubric + 8.0) / 2 with
+# 8.0 = the lowest published panel score. Winner's 9.4 is exact.
 SCORES = {
-    "I quit. My resignation is the only project here that's actually on schedule.": 94,
-    'I quit — my plants have seen more daylight than I have this quarter.': 90,
-    'This letter serves as notice that my soul has already left the building.': 87,
-    "Effective immediately, I'm trading this job for a life.": 86,
-    "Dear boss, I'm resigning to pursue my lifelong dream of not being here.": 85,
+    "I quit. My resignation is the only project here that's actually on schedule.": 9.4,
+    "I quit — my plants have seen more daylight than I have this quarter.": 8.5,
+    "Dear boss, I'm resigning to pursue my lifelong dream of not being here.": 8.5,
+    "This letter serves as notice that my soul has already left the building.": 8.35,
+    "Effective immediately, I'm trading this job for a life.": 8.3,
 }
 
 
 def score(text: str) -> float:
-    """Final combined score (0-100) for a candidate."""
+    """Final combined score (/10) for a candidate."""
     return float(SCORES[text])
 
 
@@ -63,7 +105,7 @@ def main() -> None:
     print(f"{'score':>6}  candidate")
     for candidate in sorted(FINALISTS, key=score, reverse=True):
         mark = "  <-- pick" if candidate == winner else ""
-        print(f"{score(candidate):>6.1f}  {candidate}{mark}")
+        print(f"{score(candidate):>6.2f}  {candidate}{mark}")
 
     os.makedirs("/output", exist_ok=True)
     with open("/output/entry.txt", "w", encoding="utf-8", newline="") as f:
